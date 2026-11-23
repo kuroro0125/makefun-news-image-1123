@@ -1,195 +1,282 @@
-"""Front page for Monday 23 November 2026, drawn with Pillow.
+"""Draw the front page for Monday, November 23, 2026.
 
-A broadsheet-style sheet: black masthead, one lead story, four
-half-width stories with small drawn motifs, and an ALSO TODAY strip.
-No external assets; the same input always renders the same PNG bytes.
+Run locally:  python3 render23.py
+Writes entry.png (1024 x 1024) next to this file.
+
+Only Pillow is needed, and only at authoring time: the submitted
+entrypoint (main.py) simply copies the finished image into place,
+so the graded program itself needs nothing but the standard library.
 """
-
-from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-SIZE = 1024
-MARGIN = 40
-W = SIZE - 2 * MARGIN
+W, H = 1024, 1024
+PAPER = (253, 253, 248)
+INK = (17, 17, 17)
+NAVY = (15, 42, 74)
+NAVY_DARK = (10, 30, 54)
+RED = (164, 31, 31)
+GOLD = (198, 158, 62)
+GRAY = (92, 92, 88)
+LIGHT = (236, 236, 230)
+SKY = (26, 60, 98)
+EARTH_BLUE = (52, 110, 168)
+EARTH_GREEN = (96, 148, 92)
+DUSK = (214, 158, 96)
+SMOKE = (150, 150, 146)
+FLAME = (224, 110, 40)
 
-PAPER = (248, 245, 238)
-CARD = (255, 253, 248)
-INK = (24, 24, 28)
-BODY = (58, 58, 64)
-RED = (172, 28, 36)
-GREY = (110, 110, 116)
-LINE = (24, 24, 28)
-BLUE = (28, 70, 130)
-GOLD = (196, 138, 20)
-
-FDIR = "/usr/share/fonts/truetype/dejavu"
-
-
-def font(name, size):
-    return ImageFont.truetype(f"{FDIR}/{name}", size)
-
-
-SERIF_B = "DejaVuSerif-Bold.ttf"
-SERIF = "DejaVuSerif.ttf"
-SANS_B = "DejaVuSans-Bold.ttf"
-SANS = "DejaVuSans.ttf"
+SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+SERIF_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+SANS_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
-def wrap(draw, text, fnt, limit):
-    lines, cur = [], ""
+def font(path, size):
+    try:
+        return ImageFont.truetype(path, size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def wrap(draw, text, fnt, width):
+    """Split text into lines that fit inside width pixels."""
+    lines, current = [], ""
     for word in text.split():
-        trial = (cur + " " + word).strip()
-        if draw.textlength(trial, font=fnt) <= limit:
-            cur = trial
+        trial = (current + " " + word).strip()
+        if draw.textlength(trial, font=fnt) <= width:
+            current = trial
         else:
-            lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
     return lines
 
 
-def draw_motif(draw, kind, x, y, s):
-    """Small flat motif, drawn in a s x s box at (x, y)."""
-    if kind == "sun":
-        draw.ellipse([x + s * 0.2, y + s * 0.08, x + s * 0.8, y + s * 0.68], fill=GOLD)
-        draw.rectangle([x, y + s * 0.72, x + s, y + s * 0.78], fill=INK)
-    elif kind == "ballot":
-        draw.rectangle([x + s * 0.1, y + s * 0.3, x + s * 0.9, y + s * 0.95],
-                       outline=BLUE, width=5)
-        draw.rectangle([x + s * 0.3, y + s * 0.1, x + s * 0.7, y + s * 0.34],
-                       fill=BLUE)
-        draw.line([x + s * 0.28, y + s * 0.62, x + s * 0.45, y + s * 0.8,
-                   x + s * 0.78, y + s * 0.42], fill=RED, width=6)
-    elif kind == "building":
-        draw.rectangle([x + s * 0.15, y + s * 0.3, x + s * 0.55, y + s * 0.95],
-                       fill=GREY)
-        draw.rectangle([x + s * 0.6, y + s * 0.5, x + s * 0.9, y + s * 0.95],
-                       fill=(150, 150, 156))
-        for wy in (0.42, 0.62, 0.82):
-            draw.rectangle([x + s * 0.25, y + s * wy, x + s * 0.45, y + s * wy + 7],
-                           fill=PAPER)
-        draw.ellipse([x + s * 0.58, y, x + s * 0.88, y + s * 0.3], fill=(175, 175, 180))
-    elif kind == "flame":
-        pts = [(x + s * 0.5, y), (x + s * 0.78, y + s * 0.45),
-               (x + s * 0.95, y + s * 0.75), (x + s * 0.7, y + s * 0.95),
-               (x + s * 0.3, y + s * 0.95), (x + s * 0.05, y + s * 0.75),
-               (x + s * 0.22, y + s * 0.45)]
-        draw.polygon(pts, fill=RED)
-        draw.ellipse([x + s * 0.35, y + s * 0.55, x + s * 0.65, y + s * 0.85],
-                     fill=GOLD)
-    elif kind == "plane":
-        # paper plane: two triangles
-        draw.polygon([(x, y + s * 0.45), (x + s, y + s * 0.2),
-                      (x + s * 0.55, y + s * 0.7)], fill=BLUE)
-        draw.polygon([(x, y + s * 0.45), (x + s * 0.55, y + s * 0.7),
-                      (x + s * 0.35, y + s * 0.95)], fill=(90, 130, 190))
+def para(draw, x, y, text, fnt, width, fill=INK, gap=6):
+    """Draw a wrapped paragraph; return the y below it."""
+    for line in wrap(draw, text, fnt, width):
+        draw.text((x, y), line, font=fnt, fill=fill)
+        y += fnt.size + gap
+    return y
 
 
-def story_card(draw, x, y, w, h, kicker, headline, body, motif, head_px=28, body_px=18):
-    draw.rectangle([x, y, x + w, y + h], fill=CARD, outline=LINE, width=2)
-    draw.rectangle([x, y, x + w, y + 30], fill=LINE)
-    draw.text((x + 12, y + 5), kicker, font=font(SANS_B, 16), fill=PAPER)
-    text_w = w - 28
-    if motif:
-        draw_motif(draw, motif, x + w - 96, y + 42, 84)
-        text_w = w - 96 - 40
-    cur = y + 42
-    hf = font(SERIF_B, head_px)
-    for line in wrap(draw, headline, hf, text_w):
-        draw.text((x + 14, cur), line, font=hf, fill=INK)
-        cur += head_px + 6
-    cur += 4
-    bf = font(SANS, body_px)
-    for line in wrap(draw, body, bf, w - 28):
-        draw.text((x + 14, cur), line, font=bf, fill=BODY)
-        cur += body_px + 5
-    return cur
+def headline(draw, x, y, text, width, size=54, fill=INK):
+    """Draw a headline, shrinking it until it fits the column."""
+    while size > 28:
+        fnt = font(SERIF_BOLD, size)
+        if draw.textlength(text, font=fnt) <= width:
+            break
+        size -= 2
+    fnt = font(SERIF_BOLD, size)
+    return para(draw, x, y, text, fnt, width, fill=fill, gap=2)
 
 
-def also_item(draw, x, y, w, lead, rest):
-    """One ALSO TODAY item, wrapped inside w; returns lines used."""
-    fb = font(SANS_B, 15)
-    fr = font(SANS, 15)
-    lead_txt = "• " + lead + " "
-    lw = draw.textlength(lead_txt, font=fb)
-    lines = wrap(draw, rest, fr, w - lw)
-    draw.text((x, y), lead_txt, font=fb, fill=INK)
-    draw.text((x + lw, y), lines[0], font=fr, fill=BODY)
-    for i, ln in enumerate(lines[1:]):
-        draw.text((x, y + (i + 1) * 20), ln, font=fr, fill=BODY)
-    return len(lines)
+def kicker(draw, x, y, text):
+    fnt = font(SANS_BOLD, 19)
+    draw.text((x, y), text.upper(), font=fnt, fill=RED)
+    return y + 26
 
 
-def also_today(draw, x, y, w, items):
-    draw.text((x, y), "ALSO TODAY", font=font(SANS_B, 18), fill=RED)
-    draw.line([x + 132, y + 11, x + w, y + 11], fill=LINE, width=2)
-    col_w = (w - 2 * 20) // 3
-    for i, (lead, rest) in enumerate(items):
-        cx = x + (i % 3) * (col_w + 20)
-        cy = y + 30 + (i // 3) * 46
-        also_item(draw, cx, cy, col_w, lead, rest)
+def rule(draw, x0, x1, y, fill=INK, width=2):
+    draw.line([(x0, y), (x1, y)], fill=fill, width=width)
+
+
+def globe_panel(draw, x0, y0, x1, y1):
+    """A night sky with the Earth, a rising sun and stars."""
+    draw.rectangle([x0, y0, x1, y1], fill=SKY)
+    for sx, sy, r in [(x0 + 40, y0 + 36, 3), (x0 + 120, y0 + 22, 2),
+                      (x0 + 300, y0 + 44, 3), (x0 + 360, y0 + 20, 2),
+                      (x0 + 70, y0 + 90, 2), (x0 + 330, y0 + 96, 2)]:
+        draw.ellipse([sx - r, sy - r, sx + r, sy + r], fill=(240, 240, 230))
+    # rising sun, top right
+    cx, cy = x1 - 78, y0 + 74
+    draw.ellipse([cx - 34, cy - 34, cx + 34, cy + 34], fill=(232, 178, 74))
+    for k in range(12):
+        import math
+        a = k * math.pi / 6
+        x_a, y_a = cx + int(42 * math.cos(a)), cy + int(42 * math.sin(a))
+        x_b, y_b = cx + int(56 * math.cos(a)), cy + int(56 * math.sin(a))
+        draw.line([(x_a, y_a), (x_b, y_b)], fill=(232, 178, 74), width=4)
+    # the Earth
+    ex, ey, er = x0 + 190, y0 + 196, 100
+    draw.ellipse([ex - er, ey - er, ex + er, ey + er], fill=EARTH_BLUE)
+    draw.ellipse([ex - 78, ey - 62, ex - 6, ey + 6], fill=EARTH_GREEN)
+    draw.ellipse([ex + 22, ey + 28, ex + 92, ey + 92], fill=EARTH_GREEN)
+    draw.ellipse([ex + 34, ey - 84, ex + 82, ey - 30], fill=EARTH_GREEN)
+    draw.arc([ex - er, ey - er, ex + er, ey + er], 200, 330, fill=(210, 225, 235), width=5)
+    draw.arc([ex - er, ey - er, ex + er, ey + er], 20, 140, fill=(210, 225, 235), width=5)
+
+
+def kyiv_panel(draw, x0, y0, x1, y1):
+    """Dusk skyline: a damaged apartment block, smoke rising."""
+    draw.rectangle([x0, y0, x1, y1], fill=DUSK)
+    draw.rectangle([x0, y1 - 22, x1, y1], fill=(52, 44, 40))
+    # far buildings
+    draw.rectangle([x0 + 8, y1 - 84, x0 + 44, y1 - 22], fill=(74, 62, 54))
+    draw.rectangle([x1 - 44, y1 - 96, x1 - 8, y1 - 22], fill=(74, 62, 54))
+    # the struck block, centre
+    bx0, bx1 = x0 + 52, x1 - 52
+    draw.rectangle([bx0, y0 + 52, bx1, y1 - 22], fill=(44, 40, 38))
+    # broken top corner
+    draw.polygon([(bx0 + 34, y0 + 52), (bx1, y0 + 52), (bx1, y0 + 76),
+                  (bx0 + 52, y0 + 76)], fill=DUSK)
+    # lit windows
+    for wy in range(y0 + 70, y1 - 34, 24):
+        for wx in [bx0 + 10, bx0 + 34]:
+            draw.rectangle([wx, wy, wx + 13, wy + 11], fill=(232, 196, 110))
+    # smoke
+    for sx, sy, r in [(bx0 + 44, y0 + 40, 12), (bx0 + 56, y0 + 24, 15),
+                      (bx0 + 72, y0 + 10, 18)]:
+        draw.ellipse([sx - r, sy - r, sx + r, sy + r], fill=SMOKE)
+
+
+def factory_panel(draw, x0, y0, x1, y1):
+    """A factory block with flames on the roof and smoke."""
+    draw.rectangle([x0, y0, x1, y1], fill=(58, 62, 66))
+    roof = y0 + 84
+    # chimney, right side
+    draw.rectangle([x1 - 34, y0 + 22, x1 - 14, roof], fill=(88, 84, 80))
+    # flames above the roof
+    for fx, fh in [(x0 + 18, 34), (x0 + 66, 46), (x0 + 112, 30)]:
+        draw.polygon([(fx, roof), (fx + 14, roof - fh),
+                      (fx + 28, roof)], fill=FLAME)
+        draw.polygon([(fx + 6, roof), (fx + 14, roof - fh + 14),
+                      (fx + 22, roof)], fill=(240, 200, 90))
+    # the factory block
+    draw.rectangle([x0, roof, x1, y1], fill=(34, 36, 40))
+    draw.rectangle([x0 + 14, roof + 26, x0 + 46, roof + 58], fill=(232, 196, 110))
+    draw.rectangle([x0 + 62, roof + 26, x0 + 94, roof + 58], fill=(232, 196, 110))
+    draw.rectangle([x0 + 110, roof + 26, x0 + 142, roof + 58], fill=(232, 196, 110))
+    # smoke from the chimney
+    for sx, sy, r in [(x1 - 24, y0 + 10, 11), (x1 - 34, y0 - 2, 14)]:
+        draw.ellipse([sx - r, sy - r, sx + r, sy + r], fill=SMOKE)
 
 
 def main():
-    img = Image.new("RGB", (SIZE, SIZE), PAPER)
+    img = Image.new("RGB", (W, H), PAPER)
     d = ImageDraw.Draw(img)
+    m = 36  # side margin
 
-    # Masthead
-    d.rectangle([MARGIN, 26, SIZE - MARGIN, 108], fill=INK)
-    d.text((MARGIN + 18, 36), "THE WORLD IN ONE PAGE",
-           font=font(SERIF_B, 46), fill=PAPER)
-    d.text((MARGIN, 116), "MONDAY 23 NOVEMBER 2026",
-           font=font(SANS_B, 26), fill=RED)
-    d.line([MARGIN, 152, SIZE - MARGIN, 152], fill=LINE, width=3)
+    # ---- masthead ----
+    d.rectangle([0, 0, W, 112], fill=NAVY)
+    d.rectangle([0, 112, W, 116], fill=GOLD)
+    title = font(SERIF_BOLD, 66)
+    name = "THE WORLD TODAY"
+    tw = d.textlength(name, font=title)
+    d.text(((W - tw) / 2, 16), name, font=title, fill=(250, 248, 240))
+    sub = font(SANS, 20)
+    tag = "THE DAY'S NEWS  •  IN ONE PAGE"
+    tw2 = d.textlength(tag, font=sub)
+    d.text(((W - tw2) / 2, 84), tag, font=sub, fill=(198, 178, 120))
 
-    # Lead story
-    story_card(d, MARGIN, 164, W, 232, "CLIMATE  ·  ANTALYA, TÜRKIYE",
-               "COP31 ends with no deal after two days of overtime",
-               "Nearly 200 countries left the UN climate summit without an "
-               "agreed declaration, after the EU and about 130 nations "
-               "rejected a text with no fossil-fuel phase-out. The UN chief "
-               "warned there is “no ambiguity in the science”.",
-               "sun", head_px=38, body_px=20)
+    # ---- dateline ----
+    rule(d, m, W - m, 138)
+    dl = font(SANS_BOLD, 22)
+    d.text((m, 146), "MONDAY, NOVEMBER 23, 2026", font=dl, fill=INK)
+    right = "ANTALYA  •  KYIV  •  SERANG  •  KHARTOUM"
+    rw = d.textlength(right, font=font(SANS, 20))
+    d.text((W - m - rw, 147), right, font=font(SANS, 20), fill=GRAY)
+    rule(d, m, W - m, 182)
 
-    # Rows of half-width stories
-    half = (W - 20) // 2
-    story_card(d, MARGIN, 410, half, 216, "UNITED STATES",
-               "Democrats clinch a historic House majority",
-               "At least 258 seats — the largest House majority since 1992.",
-               "ballot", head_px=28, body_px=18)
-    story_card(d, MARGIN + half + 20, 410, half, 216, "UKRAINE",
-               "Russian strikes kill 11 across the Kyiv region",
-               "A drone hit a five-storey block in Dymer; a child was pulled "
-               "alive from the rubble.",
-               "building", head_px=28, body_px=18)
-    story_card(d, MARGIN, 640, half, 216, "INDONESIA  ·  BANTEN",
-               "Candy factory fire leaves 3 dead, dozens missing",
-               "Rescuers recovered remains in 24 body bags at the plant in "
-               "Serang; the search for 34 workers resumes.",
-               "flame", head_px=28, body_px=18)
-    story_card(d, MARGIN + half + 20, 640, half, 216, "TRAVEL  ·  UNITED STATES",
-               "Delta delays pile up before Thanksgiving",
-               "An automation-system failure delayed more than 1,000 flights "
-               "at the airline's Atlanta hub on Sunday.",
-               "plane", head_px=28, body_px=18)
+    # ---- lead story: COP31 ----
+    y = 200
+    y = kicker(d, m, y, "Climate — COP31, Antalya")
+    y = headline(d, m, y, "CLIMATE TALKS END", W - m - 430, size=58)
+    y = headline(d, m, y, "WITHOUT A DEAL", W - m - 430, size=58)
+    y += 8
+    y = para(d, m, y,
+             "Nearly 200 countries closed two days of overtime talks "
+             "in Türkiye on Sunday with no overarching agreement.",
+             font(SERIF, 24), 500, gap=4)
+    y += 6
+    y = para(d, m, y,
+             "The European Union and about 130 nations rejected a final "
+             "text with no language on phasing out fossil fuels, leaving "
+             "the summit without a climate declaration.",
+             font(SANS, 20), 500, fill=(52, 52, 50), gap=4)
+    globe_panel(d, 580, 196, W - m, 500)
+    cap = font(SANS, 17)
+    d.text((580, 508), "The summit ran almost 48 hours past schedule.",
+           font=cap, fill=GRAY)
+    d.text((580, 530), "No cover decision was agreed.",
+           font=cap, fill=GRAY)
 
-    # Also today strip
-    also_today(d, MARGIN, 872, W, [
-        ("Seoul:", "S. Korea minister quits in exam-cheating row."),
-        ("Washington:", "Trump backs Jensen Huang as Nvidia CEO."),
-        ("Tehran:", "Trump warns Iran of strikes if no deal by New Year."),
-        ("Pyongyang:", "Kim says North wants security."),
-        ("Khartoum:", "drones strike homes and a UN building."),
-        ("Space:", "BepiColombo spacecraft reaches Mercury."),
-    ])
+    rule(d, m, W - m, 566)
 
-    d.text((MARGIN, 996), "Summarising the world news of Monday 23 November 2026  ·  AFP / AP / Reuters / Xinhua",
-           font=font(SANS, 14), fill=GREY)
+    # ---- second row: two stories, text beside a small panel ----
+    y = 584
+    col_w = 452
+    text_w = 300
+    panel_w = 138
+    panel_h = 150
+    # left: Kyiv
+    yy = kicker(d, m, y, "Ukraine")
+    yy = headline(d, m, yy, "DRONE STRIKE HITS", col_w, size=34)
+    yy = headline(d, m, yy, "KYIV FLAT BLOCK", col_w, size=34)
+    yy += 6
+    para(d, m, yy,
+         "At least five people were killed when a Russian drone "
+         "destroyed part of a five-storey apartment building in "
+         "Dymer, north of Kyiv, on Sunday. The region declared "
+         "23 November a day of mourning.",
+         font(SANS, 18), text_w, fill=(52, 52, 50), gap=3)
+    kyiv_panel(d, m + text_w + 14, yy, m + col_w, yy + panel_h)
 
-    out = Path(__file__).resolve().parent / "entry.png"
-    img.save(out, optimize=True)
+    # right: Indonesia factory fire
+    x2 = W - m - col_w
+    yy2 = kicker(d, x2, y, "Indonesia")
+    yy2 = headline(d, x2, yy2, "FACTORY FIRE KILLS", col_w, size=34)
+    yy2 = headline(d, x2, yy2, "DOZENS; MANY MISSING", col_w, size=34)
+    yy2 += 6
+    para(d, x2, yy2,
+         "A fire at a candy factory in Serang, Banten, has left "
+         "at least 24 people dead, with about 30 still "
+         "unaccounted for. The blaze was still burning on "
+         "Sunday evening.",
+         font(SANS, 18), text_w, fill=(52, 52, 50), gap=3)
+    factory_panel(d, x2 + text_w + 14, yy2, x2 + col_w, yy2 + panel_h)
+
+    rule(d, m, W - m, 856)
+
+    # ---- also today: four briefs ----
+    y = 874
+    d.text((m, y), "ALSO TODAY", font=font(SANS_BOLD, 20), fill=RED)
+    y += 34
+    briefs = [
+        ("SPACE", "BepiColombo enters orbit around Mercury after "
+         "eight years in flight."),
+        ("SOUTH KOREA", "The education minister resigns over an "
+         "exam-cheating scandal."),
+        ("SUDAN", "Drones strike homes and a United Nations building "
+         "in Khartoum."),
+        ("SPORT", "Carlos Alcaraz beats Alexander Zverev to win his "
+         "first ATP Finals title."),
+    ]
+    bw = 218
+    gapx = 14
+    for i, (tag, text) in enumerate(briefs):
+        bx = m + i * (bw + gapx)
+        d.text((bx, y), tag, font=font(SANS_BOLD, 18), fill=NAVY)
+        para(d, bx, y + 26, text, font(SANS, 17), bw,
+             fill=(52, 52, 50), gap=2)
+        if i < 3:
+            d.line([(bx + bw + 7, y), (bx + bw + 7, y + 82)],
+                   fill=LIGHT, width=2)
+
+    # ---- footer ----
+    rule(d, m, W - m, 994)
+    foot = font(SANS, 16)
+    d.text((m, 1002), "Compiled from wire reports  •  Monday, November 23, 2026",
+           font=foot, fill=GRAY)
+    pg = "PAGE 1"
+    pw = d.textlength(pg, font=foot)
+    d.text((W - m - pw, 1002), pg, font=foot, fill=GRAY)
+
+    img.save("entry.png", "PNG")
+    print("wrote entry.png", img.size)
 
 
 if __name__ == "__main__":

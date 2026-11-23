@@ -1,22 +1,17 @@
-"""Entry point: copy the bundled front page to the output directory.
+"""Entrypoint: copy the finished front page to the output folder.
 
-The sheet itself is `entry.png` beside this file (rendered by
-`render23.py`). The harness runs this program twice and both runs
-must write the same bytes, so this just copies the file byte for byte.
+The image itself is drawn by render23.py at authoring time and ships
+in this repository as entry.png. This program only moves those bytes
+into place, so it needs nothing but the standard library and writes
+the same file on every run.
 """
 
 import os
 import shutil
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = os.path.dirname(os.path.abspath(__file__))
+SOURCE = os.path.join(HERE, "entry.png")
+TARGET_DIR = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
 
-
-def main() -> None:
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "output"))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(HERE / "entry.png", out_dir / "entry.png")
-
-
-if __name__ == "__main__":
-    main()
+os.makedirs(TARGET_DIR, exist_ok=True)
+shutil.copyfile(SOURCE, os.path.join(TARGET_DIR, "entry.png"))
